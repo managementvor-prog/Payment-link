@@ -5,9 +5,6 @@ module.exports = async function handler(req, res) {
 
   const { amount, currency, label } = req.body;
 
-  // Log incoming request for debugging
-  console.log("Incoming request:", { amount, currency, label });
-
   try {
     const response = await fetch('https://api.zaprite.com/v1/orders', {
       method: 'POST',
@@ -16,8 +13,8 @@ module.exports = async function handler(req, res) {
         'Authorization': `Bearer ${process.env.ZAPRITE_API_KEY}`
       },
       body: JSON.stringify({
-        // Zaprite expects an integer in the smallest unit (e.g., cents)
-        amount: Math.round(Number(amount) * 100),
+        // Zaprite expects the amount as a string in the smallest unit (cents)
+        amount: (Math.round(Number(amount) * 100)).toString(),
         currency: currency,
         label: label,
         redirect_url: 'https://' + req.headers.host
@@ -27,7 +24,6 @@ module.exports = async function handler(req, res) {
     const data = await response.json();
     
     if (!response.ok) {
-        // This will print the FULL error to your Vercel logs
         console.error("Zaprite Full Error:", JSON.stringify(data));
         return res.status(response.status).json({ error: data.message || 'Zaprite error' });
     }
