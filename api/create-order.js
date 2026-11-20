@@ -3,10 +3,10 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { amount, currency, label } = req.body;
+  // Log the incoming request for debugging
+  console.log("Incoming request:", req.body);
 
-  // Log incoming request for debugging
-  console.log("Incoming request:", { amount, currency, label });
+  const { amount, currency, label } = req.body;
 
   try {
     const response = await fetch('https://api.zaprite.com/v1/orders', {
@@ -16,17 +16,19 @@ module.exports = async function handler(req, res) {
         'Authorization': `Bearer ${process.env.ZAPRITE_API_KEY}`
       },
       body: JSON.stringify({
-        amount: Math.round(amount * 100), // Converts to cents
+        amount: Math.round(amount * 100), // Converts to cents (integer)
         currency: currency,
-        label: label
+        label: label,
+        externalUniqId: `order-${Date.now()}`, // Unique ID to prevent duplicate issues
+        redirect_url: 'https://' + req.headers.host // Optional but recommended
       })
     });
 
     const data = await response.json();
     
-    // Log the exact response from Zaprite
     if (!response.ok) {
-        console.error("Zaprite API Error:", JSON.stringify(data));
+        // This will print the FULL error to your Vercel logs
+        console.error("Zaprite Full Error:", JSON.stringify(data));
         return res.status(response.status).json({ error: data.message || 'Zaprite error' });
     }
 
