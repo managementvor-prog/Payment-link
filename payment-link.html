@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Zaprite Payment Link (Cake Wallet)</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background: #f9f9f9; }
+        h1 { color: #333; }
+        .card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        label { display: block; margin-top: 16px; font-weight: 600; }
+        input, select { width: 100%; padding: 10px; margin-top: 6px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        button { margin-top: 24px; width: 100%; padding: 12px; background: #f7931a; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: 700; cursor: pointer; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #result { margin-top: 20px; padding: 16px; background: #e8f5e9; border-radius: 8px; word-break: break-all; display: none; }
+        #error { margin-top: 20px; padding: 16px; background: #ffebee; border-radius: 8px; color: #c62828; display: none; }
+        .note { font-size: 0.9em; color: #666; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <h1>Create a Payment Link</h1>
+    <p>This page creates a Zaprite order and opens the checkout page with the amount pre-filled.</p>
+    <div class="card">
+        <form id="paymentForm">
+            <label for="amount">Amount</label>
+            <input type="number" id="amount" name="amount" step="0.01" min="0.01" required placeholder="e.g. 50.00">
+
+            <label for="currency">Currency</label>
+            <select id="currency" name="currency">
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="CAD">CAD</option>
+            </select>
+
+            <label for="label">Description / Label</label>
+            <input type="text" id="label" name="label" required placeholder="e.g. Invoice #1234">
+
+            <button type="submit" id="submitBtn">Create & Open Payment Page</button>
+        </form>
+
+        <div id="result"></div>
+        <div id="error"></div>
+    </div>
+
+    <script>
+        // --- YOUR ZAPRITE CREDENTIALS ---
+        const ZAPRITE_ORG_ID = 'cmwp8hzwx000308l1zbhrwmri'; // Optional, included for reference
+        const ZAPRITE_API_KEY = '0366c672-2936-4d58-ac50-11c58b281499';
+        // --------------------------------
+
+        const ZAPRITE_API_BASE = 'https://api.zaprite.com/v1';
+
+        document.getElementById('paymentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submitBtn');
+            const resultDiv = document.getElementById('result');
+            const errorDiv = document.getElementById('error');
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating...';
+            resultDiv.style.display = 'none';
+            errorDiv.style.display = 'none';
+
+            const amount = parseFloat(document.getElementById('amount').value);
+            const currency = document.getElementById('currency').value;
+            const label = document.getElementById('label').value;
+
+            // Zaprite expects amounts in the smallest unit (e.g., cents for USD).
+            const payload = {
+                amount: Math.round(amount * 100),
+                currency: currency,
+                label: label
+            };
+
+            try {
+                const response = await fetch(`${ZAPRITE_API_BASE}/orders`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${ZAPRITE_API_KEY}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || `API error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const checkoutUrl = data.checkoutUrl || data.url || data.hosted_checkout_url;
+
+                if (!checkoutUrl) {
+                    throw new Error('API response did not contain a checkout URL. Full response: ' + JSON.stringify(data));
+                }
+
+                resultDiv.innerHTML = `
+                    <strong>✅ Payment link created!</strong><br><br>
+                    <a href="${checkoutUrl}" target="_blank" rel="noopener">${checkoutUrl}</a>
+                `;
+                resultDiv.style.display = 'block';
+
+                // Automatically open the live checkout page so you can verify the amount.
+                window.open(checkoutUrl, '_blank');
+
+            } catch (err) {
+                errorDiv.textContent = 'Error: ' + err.message;
+                errorDiv.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create & Open Payment Page';
+            }
+        });
+    </script>
+</body>
+</html>
